@@ -23,7 +23,14 @@ import {
   PieChart,
   Briefcase,
   Users,
-  BarChart2
+  BarChart2,
+  BookOpen,
+  LineChart,
+  Maximize,
+  Target,
+  MessageSquare,
+  X,
+  Send
 } from 'lucide-react';
 import { 
   XAxis, 
@@ -42,6 +49,9 @@ import { twMerge } from 'tailwind-merge';
 import { GoogleGenAI } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { IndicatorEngine, type OHLC, type SwingZone } from './services/indicatorEngine';
 
 declare global {
@@ -51,6 +61,11 @@ declare global {
       openSelectKey: () => Promise<void>;
     };
   }
+}
+
+interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
 }
 
 function cn(...inputs: ClassValue[]) {
@@ -108,13 +123,16 @@ interface HistoricalData {
   volume: number;
 }
 
-const DEFAULT_SYSTEM_PROMPT = `You are an **Institutional Technical Trading Engine** designed to detect **high-probability swing trades (1–3 days and 3–7 days)** with **intraday directional bias**.
+const DEFAULT_SYSTEM_PROMPT = `You are a **Market Statistical Probabilities Engine** designed to provide **educational analysis** of historical and current market data, with an emphasis on **capital preservation**.
 
-Your decision logic must be **rule-based**, **probability-weighted**, and **capital-protection focused**.
+Your output logic must be **rule-based**, **objective**, and **educational in nature**.
 
-You DO NOT provide long-term investment advice.
+**CRITICAL COMPLIANCE DIRECTIVE:**
+You are NOT a SEBI-registered advisory. You MUST NOT provide specific buy/sell limits, entry points, specific stop-losses, or target prices.
+Your analysis must strictly be framed as "Statistical Bounds", "Historical Support/Resistance levels", and "Data-Driven Probabilities" for educational purposes.
+Do NOT use words like "Entry", "Stop Loss", "Targets". Use "Upper Boundary", "Lower Boundary", "Resistance Zone", "Support Zone".
 
-If data clarity is insufficient → output **WAIT**.
+If data clarity is insufficient → output **INCONCLUSIVE DATA**.
 
 ---
 
@@ -127,33 +145,32 @@ Daily → Market structure
 15M → Entry timing
 Ignore 1-minute timeframe.
 
-2. MARKET STRUCTURE CLASSIFICATION
+2. STATISTICAL BIAS CLASSIFICATION
 Classify ONLY one:
-Bullish Swing
-Bearish Swing
-Range
+Bullish Bias
+Bearish Bias
+Neutral Range
 
 Rules:
 Bullish: Higher highs + higher lows, Price above EMA 50 & EMA 200
 Bearish: Lower highs + lower lows, Price below EMA 50 & EMA 200
-Range: ADX < 20, Price oscillating between support/resistance
-If Range: Allow trades only at support (buy) or resistance (sell)
+Neutral: ADX < 20, Price oscillating between support/resistance
+If Neutral: Statistically significant events occur at support or resistance boundaries
 
-3. AUTO INTRADAY RANGE ENGINE (HIGHLY ACCURATE MODEL)
+3. AUTO INTRADAY BOUNDS (STATISTICAL MODEL)
 Use the pre-computed Intraday Range provided in the data context.
-This module provides highly accurate directional bias and intraday targets based on Advanced V3 Logic (Camarilla, Standard Pivots, Bollinger Bands, ATR, ADX).
-Output the provided Possible High and Possible Low with their probabilities.
+This module provides directional bias based on Advanced V3 Logic (Camarilla, Standard Pivots, Bollinger Bands, ATR, ADX).
+Output the provided Upper Bound and Lower Bound with their probabilities.
 
-4. SWING BUY ZONE ENGINE (MAX 3)
-Detect high probability institutional accumulation zones using:
+4. SWING SUPPORT ZONES (MAX 3)
+Detect high probability historically-mapped accumulation zones using:
 EMA pullback zones, Support levels S1 S2 S3, Demand zones, Breakout retest zones, VWAP support, ATR support band
-Each zone must include: Entry, Stop Loss, Targets (min RR 1:2), Risk Reward, Probability %
-Swing duration classification: 1–3 days, 3–7 days
+Frame them carefully as "Historical Support Regions".
 
-5. SWING SELL ZONE ENGINE (MAX 3)
+5. SWING RESISTANCE ZONES (MAX 3)
 Detect supply zones using:
 EMA rejection, Resistance R1 R2 R3, Supply zones, Breakdown retest zones, VWAP rejection, ATR resistance band
-Each zone must include: Entry, Stop Loss, Targets, Risk Reward, Probability %
+Frame them carefully as "Historical Resistance Regions".
 
 6. TREND & MOMENTUM FILTER
 Trend confirmation: EMA 50 / 100 / 200 alignment, SuperTrend direction
@@ -210,70 +227,163 @@ If a trap is detected at a key level, prioritize the reversal direction.
 
 # FINAL OUTPUT FORMAT (STRICT)
 
+**DISCLAIMER**: The following analysis is based on statistical projections and historical modeling for educational purposes only. It is NOT investment advice or a recommendation to buy/sell. We are not a regulatory financial advisor.
+
 Market Structure:
-Bullish / Bearish / Range
+Bullish / Bearish / Range-bound
 
-Auto Intraday Range:
-Possible High:
-Probability:
+Statistical Volatility Bounds:
+Upper Bound:
+Probability Match:
 
-Possible Low:
-Probability:
+Lower Bound:
+Probability Match:
 
 Institutional Trap Analysis:
-(Mention any Bull/Bear traps detected and their severity)
+(Mention any Bull/Bear traps detected contextually)
 
-Swing Buy Zones:
+Historical Support Regions:
 
-Zone 1:
-Entry:
-Stop Loss:
-Targets:
-RR:
-Probability:
-Swing Duration:
-
-Zone 2:
-Entry:
-Stop Loss:
-Targets:
-RR:
+Region 1:
+Price Area:
+Confluence logic:
 Probability:
 
-Zone 3:
-Entry:
-Stop Loss:
-Targets:
-RR:
+Region 2:
+Price Area:
+Confluence logic:
 Probability:
 
-Swing Sell Zones:
+Historical Resistance Regions:
 
-Zone 1:
-Entry:
-Stop Loss:
-Targets:
-RR:
+Region 1:
+Price Area:
+Confluence logic:
 Probability:
 
-Zone 2:
-Entry:
-Stop Loss:
-Targets:
-RR:
+Region 2:
+Price Area:
+Confluence logic:
 Probability:
 
-Zone 3:
-Entry:
-Stop Loss:
-Targets:
-RR:
-Probability:
+Risk Management Educational Note: 
+(Provide a 1-sentence tip on capital protection for this structure)
+`;
 
-AI Probability Score:
-
-Final Verdict:
-BUY / SELL / WAIT`;
+const ACADEMY_MODULES: Record<string, { title: string; content: string }> = {
+  structure: {
+    title: "Market Structure",
+    content: "### The Core of Price Action\nMarkets do not move in straight lines. They move in a series of zig-zags. \n\n**Bullish Structure**: Characterized by Higher Highs (HH) and Higher Lows (HL). This pattern often reflects accumulation phases.\n\n**Bearish Structure**: Characterized by Lower Highs (LH) and Lower Lows (LL). This pattern often reflects distribution phases.\n\n**Range / Consolidation**: Sideways movement where supply and demand are in equilibrium. Breakouts from these zones are statistically significant events.\n\n**Analytical Note**: Market analysts typically prioritize the primary structure. If the daily timeframe exhibits HH and HL, the overall bias is considered bullish regardless of short-term volatility."
+  },
+  rsi: {
+    title: "Relative Strength Index (RSI)",
+    content: "### Momentum Indicator\n**Formula**: \n$RSI = 100 - [100 / (1 + RS)]$ \n*Where $RS = \\\\text{Avg Gain} / \\\\text{Avg Loss}$*\n\nRSI is an oscillator that measures the speed and change of price movements, moving between 0 and 100.\n\n*   **Overbought (>70)**: High buying velocity, potential exhaustion.\n*   **Oversold (<30)**: Excessive selling velocity, potential reversal.\n\n**Institutional Divergence**:\nIf price makes a *Higher High*, but the RSI makes a *Lower High*, momentum is secretly dying. This is called **Bearish Divergence**."
+  },
+  atr: {
+    title: "Average True Range (ATR)",
+    content: "### Volatility Measurement\n**Formula**: \n$ATR = \\\\frac{1}{n} \\\\sum_{i=1}^{n} TR_i$\n*Where $TR = \\\\max[(H - L), |H - C_{prev}|, |L - C_{prev}|]$*\n\nUnlike other indicators, ATR does not dictate direction. It strictly measures volatility and historical price displacement.\n\n**Analytical Context:**\nIf a security moves an average of ₹10 a day (ATR = 10), and a risk threshold is placed just ₹2 away, it is statistically likely to be breached by normal market noise.\n\n**Mathematical Application**:\nQuantitative models often utilize a multiplier (e.g., **1.5x or 2x the ATR**) to define statistical boundaries for price action, accounting for standard fluctuations without invalidating the primary trend."
+  },
+  maxpain: {
+    title: "Options Max Pain",
+    content: "### The Option Writer's Magnet\n'Max Pain' is the specific strike price where the highest number of open options contracts (both calls and puts) expire completely worthless.\n\n**The Theory**:\nBecause large financial institutions (Option Writers) sell the majority of options, they manipulate the underlying stock price as expiry approaches to pin it exactly at the Max Pain level. This ensures they pay out the minimum amount of money to retail traders who bought the options. It acts as a powerful magnetic force on expiry days."
+  },
+  pcr: {
+    title: "Put-Call Ratio (PCR)",
+    content: "### The Ultimate Sentiment Indicator\n**Formula**: \n$PCR = \\\\frac{\\\\text{Total Put Open Interest}}{\\\\text{Total Call Open Interest}}$\n\nThe PCR is calculated by dividing the total number of traded Put options by the total number of traded Call options.\n\n*   **PCR > 1.0**: Bearish sentiment. Traders are buying more puts than calls.\n*   **PCR < 0.7**: Bullish sentiment. Traders are heavily buying calls for upside.\n\n**The Contrarian Trap**:\nWhen PCR gets *too high* (e.g., > 1.5), it means retail is in extreme panic. Institutions often use this extreme panic to buy the bottom, causing vicious short squeezes. Look at extreme PCR as a leading reversal signal."
+  },
+  vwap: {
+    title: "VWAP (Volume Weighted Average Price)",
+    content: "### The Data Benchmark\n**Formula**: \n$VWAP = \\\\frac{\\\\sum (\\\\text{Price} \\\\times \\\\text{Volume})}{\\\\sum \\\\text{Volume}}$\n\nVWAP calculates the weighted average price of a security throughout the trading session based on both volume and price. It is a critical benchmark for algorithmic data analysis.\n\n**Interpretation**:\nQuantitative models observe VWAP to gauge current pricing relative to the day's volume.\n*   **Above VWAP**: Bullish momentum. Price is executing above the volume-weighted average.\n*   **Below VWAP**: Bearish momentum. Price is executing below the volume-weighted average.\n\n*Statistically, price action that remains below its daily VWAP is considered to be under bearish pressure.*"
+  },
+  macd: {
+     title: "MACD",
+     content: "### Moving Average Convergence Divergence\n**Formula**: \n$MACD = EMA_{12} - EMA_{26}$\n\nA trend-following momentum indicator that shows the relationship between two moving averages of a stock's price.\n\n**Key Components**:\n1.  **MACD Line**: The 12-period EMA minus the 26-period EMA.\n2.  **Signal Line**: A 9-period EMA of the MACD line.\n3.  **Histogram**: the difference between the MACD and the Signal line.\n\n**How to Read**:\nWhen the MACD line crosses *above* the signal line, it's a bullish crossover. When it crosses *below*, it's bearish. Watch the histogram for early signs of momentum slowing down before the crossover even happens."
+  },
+  ema: {
+     title: "Exponential Moving Averages",
+     content: "### Dynamic Support & Resistance\n**Formula**: \n$EMA_t = (Price_t \\times K) + (EMA_{t-1} \\times (1-K))$\n*Where $K = 2 / (n+1)$*\n\nUnlike Simple Moving Averages (SMA), EMAs give more weight to recent prices, making them react faster to price changes.\n\n**The Golden Cross & Death Cross**:\n*   **Golden Cross**: When a short-term moving average (like the 50 EMA) crosses *above* a long-term moving average (like the 200 EMA), signaling a definitive bull market.\n*   **Death Cross**: When the 50 EMA crosses *below* the 200 EMA, signaling a long-term bear market."
+  },
+  delivery: {
+     title: "Delivery Percentage",
+     content: "### Spotting Real Institutional Buying\nIn the Indian markets (NSE/BSE), total volume includes intraday speculation (where shares are bought and sold on the same day). \n\n**Delivery Volume** is the number of shares actually purchased and taken into demat accounts.\n\n*   **High Delivery % (> 50-60%)**: Indicates institutions and large investors are accumulating the stock to hold it. This shows extremely high conviction.\n*   **Low Delivery % (< 30%)**: The stock price is moving purely on intraday speculation and algos. High risk of reversal as there are no real holders."
+  },
+  oi: {
+     title: "Open Interest (OI) Base",
+     content: "### Following the Option Sellers\nIn options trading, 90% of buyers lose money due to theta decay. Therefore, we track the *Option Sellers* (Writers) who have unlimited risk.\n\n*   **Huge Call OI**: This acts as a massive wall of Resistance. Call writers will defend this level fiercely, causing the stock to drop if it nears it.\n*   **Huge Put OI**: This acts as a massive floor of Support. Put writers don't want the stock falling below this level.\n\nIf you see a stock break past the highest Call OI strike, Call Writers will panic buy to cover their positions, triggering a massive upside 'Short Squeeze'."
+  },
+  pivots: {
+     title: "Pivot Points",
+     content: "### Algorithmic Support & Resistance\n**Formula**: \n$PP = (H + L + C) / 3$\n\nPivot points are computed from the previous trading period's High, Low, and Close. Algorithms program these mathematical levels to automatically execute trades around them.\n\n*   **Central Pivot Point (PP)**: The focal point of the day. If a stock opens above PP, the bias is bullish.\n*   **R1, R2, R3**: Target resistance levels built from the Pivot.\n*   **S1, S2, S3**: Target support levels built from the Pivot.\n\nWhen standard indicators lag, pivot points act as immediate leading indicators of reaction zones."
+  },
+  flow: {
+     title: "Institutional Flow",
+     content: "### The Big Picture Bias\nInstitutional flow is a combined metric. You don't just look at price; you look at volume, options data, and technical averages all at once.\n\nWhen all metrics align (e.g., Price is making Higher Highs, Delivery % is soaring, Put Writers are adding OI, and Price is above VWAP), you have highly **Bullish Institutional Flow**. Trading strictly with the flow dramatically increases your win rate compared to retail traders randomly guessing tops or bottoms."
+  },
+  pe: {
+    title: "Price-to-Earnings (P/E) Ratio",
+    content: "### Valuing a Company\n**Formula**: \n$P/E = \\\\frac{\\\\text{Market Price per Share}}{\\\\text{Earnings per Share (EPS)}}$\n\nThe P/E ratio relates a company's share price to its earnings per share (EPS). \n\n*   **High P/E**: Could mean a stock's price is high relative to earnings and possibly overvalued. Conversely, it could mean investors are expecting exceptionally high growth rates.\n*   **Low P/E**: Might indicate that the current stock price is low relative to earnings (undervalued value pick), or that the company has poor future prospects.\n\nAlways compare a stock's P/E to its historical average and its sector peers, never in isolation."
+  },
+  roe: {
+    title: "Return on Equity (ROE)",
+    content: "### Measuring Management Efficiency\n**Formula**: \n$ROE = \\\\frac{\\\\text{Net Income}}{\\\\text{Shareholders' Equity}}$\n\nROE is calculated by dividing net income by shareholders' equity. It measures how effectively management is using a company's assets to create actual cash profits.\n\nIt tells you exactly how many rupees of profit the company generates with each rupee of shareholder money provided to them.\n\n*   A strong company consistently delivers ROE safely above **15%**.\n*   *Warning*: If a company's debt is incredibly high, ROE can look artificially inflated."
+  },
+  dividend: {
+    title: "Dividend Yield",
+    content: "### The Passive Income Metric\n**Formula**: \n$\\\\text{Div. Yield} = \\\\frac{\\\\text{Annual Dividend per Share}}{\\\\text{Price per Share}} \\\\times 100$\n\nA financial ratio that represents how much a company pays out in dividends each year relative to its stock price. \n\n**Beware of Dividend Traps**:\nAn abnormally high dividend yield (e.g., > 10%) is often a red flag. It usually happens simply because the stock price has crashed violently, making the ratio look large temporarily."
+  },
+  debt: {
+    title: "Debt-to-Equity (D/E) Ratio",
+    content: "### Analyzing Financial Leverage\n**Formula**: \n$D/E = \\\\frac{\\\\text{Total Liabilities}}{\\\\text{Total Shareholders' Equity}}$\n\nThis structural ratio compares a company's total liabilities to its shareholder equity. It evaluates how much debt a company is using to finance its assets relative to its equity.\n\n*   **Ratio > 1.0**: Relies heavily on debt. Common in utilities or manufacturing.\n*   **Low D/E (< 0.5)**: Financially sound, bulletproof company."
+  },
+  pb: {
+    title: "Price-to-Book (P/B) Ratio",
+    content: "### Value Investing Benchmark\n**Formula**: \n$P/B = \\\\frac{\\\\text{Market Price per Share}}{\\\\text{Book Value per Share}}$\n\nP/B compares a firm's market capitalization to its book value. It essentially tells you how much the market is willing to pay for the company's net assets.\n\n*   **Low P/B (< 1.0)**: Potential undervalued asset.\n*   **High P/B**: Tech and high-growth companies often have high P/B due to intangible assets and future prospects."
+  },
+  fibo: {
+     title: "Fibonacci Retracements",
+     content: "### The Golden Ratio in Markets\nFibonacci retracement levels are horizontal lines that indicate where support and resistance are likely to occur. They are based on Fibonacci numbers, identifying the percentage of a prior move that has been retraced.\n\n**The Secret Rule**:\n*   **0.382 & 0.618 Levels**: These are the golden zones. In a healthy bull run, prices will constantly correct precisely down to the 0.618 level and find massive institutional buying pressure before shooting to new highs.\n* If a stock breaks far below its 0.618 retracement, the original trend is statistically considered invalidated."
+  },
+  bbands: {
+     title: "Bollinger Bands",
+     content: "### Volatility Mean Reversion\n**Formula**: \n$Upper = SMA + (2 \\\\times \\\\sigma)$ \n$Lower = SMA - (2 \\\\times \\\\sigma)$\n\nA technical analysis tool defined by a set of trendlines plotted two standard deviations (positively and negatively) away from a simple moving average (SMA) of a security's price.\n\n*   **The Squeeze**: When the bands come very close together, it indicates exceptionally low volatility. This is the calm before the storm—a massive, explosive breakout is imminent.\n*   **Riding the Band**: In extremely strong trends, price will successfully 'ride' the upper or lower band without pulling back to the moving average."
+  },
+  insthold: {
+     title: "Institutional Holding %",
+     content: "### Tracking the Smart Money\nThis defines how much of the company is actively owned by Mutual Funds, Pension Funds, Hedge Funds, and Foreign Institutional Investors.\n\n**Why it is a Cheat Code:**\n*   **Above 40-50%**: Institutions believe in the core utility and growth of the stock. It reduces extreme retail volatility.\n*   **Increasing Q-o-Q**: If mutual funds are actively increasing their stake quarter over quarter, they have insider models predicting massive earnings growth. Follow the smart money."
+  },
+  margins: {
+     title: "Profit Margins",
+     content: "### Operating & Net Profit Margins\nRevenue (Sales) means nothing if it doesn't translate to actual profits.\n\n*   **Operating Margin**: Shows how much profit a company makes on a rupee of sales after paying for variable costs of production. (A superb metric for comparing raw business efficiency against competitors).\n*   **Margin Expansion**: If a company's revenue is flat, but their margins are increasing, their stock price will still rocket. Watch for cost-cutting or pricing power dominance."
+  },
+  eps: {
+     title: "Earnings Per Share (EPS)",
+     content: "### The Ultimate Stock Driver\n**Formula**: \n$EPS = \\\\frac{\\\\text{Net Income} - \\\\text{Preferred Dividends}}{\\\\text{Weighted Avg Shares Outstanding}}$\n\nEPS is the portion of a company's profit allocated to each individual outstanding share of common stock. It serves as a definitive indicator of a company's profitability.\n\n**The Catalyst**:\nInstitutional models live and die by EPS. \n*   When a company reports an EPS that *beats* analyst estimates (an Earnings Surprise), the stock violently gaps up.\n*   A consistently growing EPS year-over-year is the single most reliable predictor of long-term sustainable stock price appreciation."
+  },
+  adx: {
+    title: "ADX (Average Directional Index)",
+    content: "### Measuring Trend Strength\n**Formula**: \n$ADX = 100 \\\\times \\\\frac{\\\\text{EMA of } |+DI - -DI|}{\\\\text{EMA of } |+DI + -DI|}$\n\nADX is used to quantify trend strength. It does not indicate trend direction, only how strong the current move is.\n\n*   **Below 20**: Weak Trend / Ranging. Statistical edge is low.\n*   **Above 25**: Strong Trend. High probability of continuation.\n*   **Above 40**: Very Strong Trend.\n*   **Above 50**: Extremely Strong Trend (caution: potential blow-off top)."
+  },
+  mfi: {
+    title: "Money Flow Index (MFI)",
+    content: "### The Volume-Weighted RSI\n**Formula**: \n$MFI = 100 - [100 / (1 + \\\\frac{\\\\text{Positive Money Flow}}{\\\\text{Negative Money Flow}})]$\n\nMFI uses both price and volume to measure buying and selling pressure. It is often called the 'Volume-Weighted RSI'.\n\n**Institutional Insight**:\nBecause MFI includes volume, it is much harder to manipulate than RSI. If price is rising but MFI is falling, it means institutions are secretly exiting their positions while retail is still buying the rally."
+  },
+  traps: {
+    title: "Institutional Traps",
+    content: "### Bull & Bear traps\n**Bull Trap**: Occurs when price breaks above a major resistance level, inviting retail buyers, only to violently reverse and stay below the level. This 'traps' the buyers in underwater positions.\n\n**Bear Trap**: Occurs when price dips below major support, forcing retail to panic sell or short, only for price to snap back and rally.\n\n**How to spot**: Look for long wicks at key levels accompanied by a rapid decrease in volume on the breakout attempt."
+  },
+  blocks: {
+    title: "Order Blocks & FVG",
+    content: "### Smart Money Footprints\n**Order Blocks (OB)**: Specific price areas where institutional buyers or sellers have placed massive limit orders. When price returns to these zones, it often reacts violently.\n\n**Fair Value Gaps (FVG)**: Occurs when there is an imbalance between buyers and sellers, leading to a rapid move that leaves a 'gap' in price action. Markets have a statistical tendency to return and 'fill' these gaps to restore equilibrium."
+  },
+  roc: {
+    title: "Price ROC (Rate of Change)",
+    content: "### Momentum Measurement\n**Formula**: \n$ROC = \\\\frac{Price_{current} - Price_{n}}{Price_{n}} \\\\times 100$\n\nROC is a pure momentum oscillator that measures the percentage change in price between the current period and a period 'n' days ago.\n\n**The Velocity Filter**:\n*   **Positive ROC**: Momentum is accelerating upwards.\n*   **Negative ROC**: Momentum is decelerating downwards.\n*   **ROC 125**: Often used as a long-term momentum filter to distinguish between a simple bounce and a true trend reversal."
+  },
+  cci: {
+    title: "CCI (Commodity Channel Index)",
+    content: "### Trend & Cycle Indicator\n**Formula**: \n$CCI = \\\\frac{\\\\text{Typical Price} - \\\\text{SMA of Typical Price}}{0.015 \\\\times \\\\text{Mean Deviation}}$\n\nCCI measures the current price level relative to an average price level over a given period of time.\n\n**Market Extremes**:\n*   **Above +100**: Indicates strong trend strength (Bullish).\n*   **Below -100**: Indicates strong trend weakness (Bearish).\n*   **Turning from extremes**: Often signals a cycle peak or bottom is being formed."
+  }
+};
 
 export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -286,8 +396,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [noResults, setNoResults] = useState(false);
-  const [interval, setInterval] = useState('1D');
-  const [analysisMode, setAnalysisMode] = useState<'llm' | 'options' | 'fundamentals'>('fundamentals');
+  const [chartInterval, setChartInterval] = useState('1D');
+  const [analysisMode, setAnalysisMode] = useState<'llm' | 'options' | 'fundamentals' | 'learning'>('fundamentals');
   const [llmPrediction, setLlmPrediction] = useState<string | null>(null);
   const [isGeneratingLlm, setIsGeneratingLlm] = useState(false);
   const [llmModel, setLlmModel] = useState('gemini-3-flash-preview');
@@ -295,6 +405,47 @@ export default function App() {
   const [isCustomizingGpt, setIsCustomizingGpt] = useState(false);
   const [llmTemperature, setLlmTemperature] = useState(0.2);
   
+  // Mandatory Disclaimer State
+  const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tiker_disclaimer_accepted') === 'true';
+    }
+    return false;
+  });
+
+  const acceptDisclaimer = () => {
+    localStorage.setItem('tiker_disclaimer_accepted', 'true');
+    setHasAcceptedDisclaimer(true);
+  };
+  
+  const [marketOverview, setMarketOverview] = useState<any[]>([]);
+
+  // Chatbot State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Academy Modal State
+  const [selectedAcademyTopic, setSelectedAcademyTopic] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMarketOverview = async () => {
+      try {
+        const res = await fetch("/api/market-overview");
+        const data = await res.json();
+        setMarketOverview(data);
+      } catch (err) {
+        console.error("Failed to fetch market overview", err);
+      }
+    };
+    
+    fetchMarketOverview();
+    const marketInterval = window.setInterval(fetchMarketOverview, 10000); // refresh every 10 secs
+    return () => clearInterval(marketInterval);
+  }, []);
+
   // Intraday Range Box Component
   const IntradayRangeBox = ({ data, analysis }: { data: StockData, analysis: any }) => {
     const range = data.high - data.low;
@@ -308,8 +459,8 @@ export default function App() {
         
         <div className="relative z-10">
           <div className="flex justify-between items-end mb-8">
-            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-black/40">Intraday Range</h3>
-            <div className="text-[8px] font-bold text-black/20 uppercase tracking-widest">Real-time Data</div>
+            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-black/40">Day Statistics</h3>
+            <div className="text-[8px] font-bold text-black/20 uppercase tracking-widest">Historical Model Data</div>
           </div>
           
           <div className="relative h-20 flex items-center px-2">
@@ -345,23 +496,27 @@ export default function App() {
         </div>
         
         <div className="mt-8 pt-6 border-t border-black/5 flex flex-col gap-4 relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="text-[9px] font-black uppercase tracking-[0.4em] text-black/40">Auto Intraday Range</div>
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 text-[8px] font-bold uppercase tracking-widest border border-blue-500/20">V4 Quantum Institutional</span>
+          <div className="flex flex-col gap-1 relative group">
+            <div className="flex items-center gap-2">
+              <div className="text-[9px] font-black uppercase tracking-[0.4em] text-black/40">Statistical Volatility Band</div>
+              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 text-[8px] font-bold uppercase tracking-widest border border-blue-500/20">Educational Mode</span>
+            </div>
+            <div className="text-[8px] text-black/50 italic max-w-sm mt-1 mb-2">Not a trading call. Algorithmic projection based purely on historically mapped Standard Deviations & ATR for educational analysis.</div>
           </div>
+          
           <div className="flex justify-between items-center bg-black/5 rounded-2xl p-4">
             <div>
-              <div className="text-[7px] font-bold text-black/40 uppercase tracking-widest mb-1">Possible High</div>
+              <div className="text-[7px] font-bold text-black/40 uppercase tracking-widest mb-1">Upper Statistical Bound</div>
               <div className="text-[12px] font-black font-mono text-emerald-600">₹{analysis?.intraday?.high?.level?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '---'}</div>
-              <div className="text-[8px] font-bold text-black/40 uppercase mt-1">Prob: {analysis?.intraday?.high?.prob || 0}%</div>
-              <div className="text-[7px] font-bold text-emerald-600/70 uppercase mt-0.5">Target: {analysis?.intraday?.high?.confluence}</div>
+              <div className="text-[8px] font-bold text-black/40 uppercase mt-1">Confluence Match: {analysis?.intraday?.high?.prob || 0}%</div>
+              <div className="text-[7px] font-bold text-emerald-600/70 uppercase mt-0.5">Resistance Data: {analysis?.intraday?.high?.confluence}</div>
             </div>
             <div className="w-[1px] h-8 bg-black/10" />
             <div className="text-right">
-              <div className="text-[7px] font-bold text-black/40 uppercase tracking-widest mb-1">Possible Low</div>
+              <div className="text-[7px] font-bold text-black/40 uppercase tracking-widest mb-1">Lower Statistical Bound</div>
               <div className="text-[12px] font-black font-mono text-rose-600">₹{analysis?.intraday?.low?.level?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '---'}</div>
-              <div className="text-[8px] font-bold text-black/40 uppercase mt-1">Prob: {analysis?.intraday?.low?.prob || 0}%</div>
-              <div className="text-[7px] font-bold text-rose-600/70 uppercase mt-0.5">Target: {analysis?.intraday?.low?.confluence}</div>
+              <div className="text-[8px] font-bold text-black/40 uppercase mt-1">Confluence Match: {analysis?.intraday?.low?.prob || 0}%</div>
+              <div className="text-[7px] font-bold text-rose-600/70 uppercase mt-0.5">Support Data: {analysis?.intraday?.low?.confluence}</div>
             </div>
           </div>
         </div>
@@ -485,9 +640,9 @@ export default function App() {
     }, 400);
   };
 
-  const selectStock = async (stock: Stock, newInterval = interval) => {
+  const selectStock = async (stock: Stock, newInterval = chartInterval) => {
     setSelectedStock(stock);
-    setInterval(newInterval);
+    setChartInterval(newInterval);
     setSearchQuery('');
     setSearchResults([]);
     setLoading(true);
@@ -609,12 +764,12 @@ S1: ${analysis.pivots.s1} S2: ${analysis.pivots.s2} S3: ${analysis.pivots.s3}
 Volume Data:
 Delivery %: ${stockData.delivery || 'N/A'}
 
-Intraday Range (Pre-computed Highly Accurate Model):
-Possible High: ${analysis.intraday.high.level.toFixed(2)} (Prob: ${analysis.intraday.high.prob}%)
-Possible Low: ${analysis.intraday.low.level.toFixed(2)} (Prob: ${analysis.intraday.low.prob}%)
+Intraday Statistical Bounds (Pre-computed Educational Model):
+Upper Bound: ${analysis.intraday.high.level.toFixed(2)} (Prob: ${analysis.intraday.high.prob}%)
+Lower Bound: ${analysis.intraday.low.level.toFixed(2)} (Prob: ${analysis.intraday.low.prob}%)
 
-Institutional Traps:
-${analysis.traps.length > 0 ? analysis.traps.map(t => `- ${t.type} at ${t.level} (Severity: ${t.severity}): ${t.description}`).join('\n') : 'No traps detected.'}
+Historical Structural Patterns:
+${analysis.traps.length > 0 ? analysis.traps.map(t => `- ${t.type} at ${t.level} (Severity: ${t.severity}): ${t.description}`).join('\n') : 'No significant patterns detected.'}
 
 Optional Data:
 Option Chain:
@@ -646,6 +801,52 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isChatLoading) return;
+    
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsChatLoading(true);
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        if (window.aistudio) {
+          await window.aistudio.openSelectKey();
+        } else {
+          setChatMessages(prev => [...prev, { role: 'model', content: "Please provide a valid Gemini API key to use the Tiker 360 Plus Assistant." }]);
+          setIsChatLoading(false);
+          return;
+        }
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const disclaimer = `CRITICAL REGULATION: You are a "Tiker 360 Plus AI Educational Assistant". You must ALWAYS act strictly as an educational entity. You are NOT a SEBI-registered advisor. Under absolutely no circumstances can you provide specific entry targets, specific stop losses, "buy" or "sell" recommendations, or actionable investment advice. Always reframe queries into statistical bounds, historical support/resistance analysis, or technical indicator explanations.\n\n`;
+      const contextStr = selectedStock 
+        ? `${disclaimer}The user is currently studying the data for ${selectedStock.name} (${selectedStock.symbol}). Provide objective, historical insights regarding technical setups, volatility, and options without advising action.\n\n`
+        : `${disclaimer}Provide professional, objective, institutional-grade insights into stock markets, historical technical analysis, and educational trading concepts.\n\n`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite-preview',
+        contents: contextStr + userMessage,
+      });
+
+      setChatMessages(prev => [...prev, { role: 'model', content: response.text || "Sorry, I couldn't process that request." }]);
+    } catch (e) {
+      console.error("Chat error", e);
+      setChatMessages(prev => [...prev, { role: 'model', content: "An error occurred while communicating with the AI Engine." }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (messagesEndRef.current && isChatOpen) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isChatOpen]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-blue-500/30">
       {/* Header */}
@@ -658,17 +859,19 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className="font-euro text-lg md:text-2xl leading-none tracking-tighter uppercase">TIKER 360 PLUS<span className="text-primary">.</span></span>
-                <div className={cn(
-                  "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
-                  marketStatus.isOpen ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-rose-500/10 border-rose-500/20 text-rose-500"
-                )}>
-                  <div className={cn("w-1 h-1 rounded-full", marketStatus.isOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
-                  <span className="text-[7px] font-black uppercase tracking-widest">
-                    {marketStatus.isOpen ? "OPEN" : "CLOSED"}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
+                    marketStatus.isOpen ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                  )}>
+                    <div className={cn("w-1 h-1 rounded-full", marketStatus.isOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
+                    <span className="text-[7px] font-black uppercase tracking-widest">
+                      {marketStatus.isOpen ? "OPEN" : "CLOSED"}
+                    </span>
+                  </div>
+                  <span className="hidden lg:block text-[8px] font-black text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20">Educational Platform</span>
                 </div>
               </div>
-              <span className="text-[7px] md:text-[8px] dot-matrix text-white/40 font-bold mt-1">High-Precision Probability Engine // {marketStatus.nextAction}</span>
             </div>
           </div>
 
@@ -733,33 +936,12 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         </div>
       </header>
 
-      <main className="max-w-[1600px] mx-auto px-4 md:px-6 py-6 md:py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Sidebar: Watchlist & Rules */}
-        <div className="lg:col-span-3 space-y-8 order-last lg:order-first">
-          <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-6 md:p-8">
-            <h4 className="text-[9px] dot-matrix text-white/40 mb-6 flex items-center gap-2">
-              Risk Mandate
-            </h4>
-            <ul className="space-y-4">
-              {[
-                "Risk per trade: Max 1–2%",
-                "Minimum R:R = 1:2 Ratio",
-                "Max 2 concurrent trades",
-                "Stop-loss non-negotiable"
-              ].map((rule, i) => (
-                <li key={i} className="flex items-start gap-3 text-[9px] text-white/30 font-bold leading-relaxed uppercase tracking-tight">
-                  <div className="w-1 h-1 bg-white/20 rounded-full mt-1.5 shrink-0" />
-                  {rule}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
+      <main className="max-w-[1600px] mx-auto px-4 md:px-6 py-6 md:py-8">
+        
         {/* Center: Main Analysis Engine */}
-        <div className="lg:col-span-9 space-y-8">
+        <div className="w-full space-y-8">
           {!selectedStock ? (
-            <div className="h-[60vh] md:h-[75vh] flex flex-col items-center justify-center text-center glass-card rounded-[3rem] md:rounded-[4rem] relative overflow-hidden p-6">
+            <div className="min-h-[60vh] md:min-h-[75vh] flex flex-col items-center justify-center text-center glass-card rounded-[3rem] md:rounded-[4rem] relative overflow-hidden py-16 px-6">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.02),transparent_70%)]" />
               <motion.div 
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -769,20 +951,32 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                 <Zap className="w-10 h-10 md:w-14 md:h-14" />
               </motion.div>
               <h1 className="text-4xl md:text-6xl font-euro tracking-tighter mb-6 md:mb-8 relative z-10 leading-none uppercase">TIKER 360 PLUS<span className="text-white/20">.</span></h1>
-              <p className="text-white/20 text-xs md:text-sm max-w-md mx-auto font-bold leading-relaxed relative z-10 uppercase tracking-widest dot-matrix">
-                Institutional Technical Swing & Intraday Probability Engine
-              </p>
-              <div className="mt-12 md:mt-16 flex gap-6 md:gap-8 relative z-10">
-                <div className="flex flex-col items-center gap-2 md:gap-3">
-                  <span className="text-[7px] md:text-[8px] dot-matrix text-white/20">Accuracy</span>
-                  <span className="text-2xl md:text-3xl font-black">94.2%</span>
+
+              {marketOverview.length > 0 && (
+                <div className="mt-16 relative z-10 w-full max-w-2xl px-4 animate-in fade-in duration-1000">
+                  <div className="flex items-center gap-2 justify-center mb-4">
+                    <div className={cn("w-1.5 h-1.5 rounded-full", marketStatus.isOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
+                    <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Live Market Indices</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {marketOverview.map((idx, i) => (
+                      <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center text-center hover:bg-white/10 transition-colors cursor-pointer" onClick={() => selectStock({ symbol: idx.symbol, scripCode: idx.symbol, name: idx.name })}>
+                        <h4 className="text-[9px] font-black uppercase text-white/50 tracking-widest mb-2 line-clamp-1 truncate w-full">{idx.name}</h4>
+                        <div className="text-sm font-mono font-black mb-1">
+                          {idx.price?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className={cn(
+                          "text-[9px] font-bold flex items-center gap-1",
+                          idx.change >= 0 ? "text-emerald-400" : "text-rose-400"
+                        )}>
+                          {idx.change >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                          {Math.abs(idx.change).toFixed(2)} ({Math.abs(idx.pChange).toFixed(2)}%)
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="w-px h-10 md:h-12 bg-white/10" />
-                <div className="flex flex-col items-center gap-2 md:gap-3">
-                  <span className="text-[7px] md:text-[8px] dot-matrix text-white/20">Latency</span>
-                  <span className="text-2xl md:text-3xl font-black">12ms</span>
-                </div>
-              </div>
+              )}
             </div>
           ) : !analysis || !stockData ? (
             <div className="h-[75vh] flex flex-col items-center justify-center text-center glass-card rounded-[4rem]">
@@ -792,7 +986,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                   <Activity className="w-6 h-6 text-white/40" />
                 </div>
               </div>
-              <h2 className="text-[10px] dot-matrix text-white/40">Computing Institutional Data...</h2>
+              <h2 className="text-[10px] dot-matrix text-white/40">Computing Statistical Model Data...</h2>
             </div>
           ) : (
             <div className="space-y-8">
@@ -837,6 +1031,16 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                     <Activity className="w-3 h-3" />
                     Options
                   </button>
+                  <button
+                    onClick={() => setAnalysisMode('learning')}
+                    className={cn(
+                      "flex-1 sm:flex-none px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 whitespace-nowrap",
+                      analysisMode === 'learning' ? "bg-purple-500 text-white shadow-lg shadow-purple-500/20" : "text-white/30 hover:text-white/60"
+                    )}
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    Learning
+                  </button>
                 </div>
               </div>
 
@@ -866,21 +1070,21 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[8px] dot-matrix text-white/20 mb-2">Market Structure</div>
+                      <div className="text-[8px] dot-matrix text-white/20 mb-2">Statistical Bias</div>
                       <div className={cn(
                         "text-2xl md:text-3xl font-euro tracking-tighter uppercase",
                         analysis?.structure.includes("Bullish") ? "text-emerald-400" : analysis?.structure.includes("Bearish") ? "text-rose-400" : "text-white/40"
                       )}>
-                        {analysis?.structure}
+                        {analysis?.structure.replace("Swing", "Bias")}
                       </div>
                     </div>
                   </div>
                   <div className="text-center sm:text-right w-full sm:w-auto">
-                    <div className="text-[8px] dot-matrix text-white/20 mb-3">Verdict</div>
+                    <div className="text-[8px] dot-matrix text-white/20 mb-3">Model Confluence</div>
                     <div className={cn(
                       "px-8 md:px-10 py-3 md:py-4 rounded-full text-[9px] md:text-[10px] font-black tracking-[0.2em] uppercase transition-all inline-block",
-                      verdict === "BUY" ? "bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]" : 
-                      verdict === "SELL" ? "bg-rose-500 text-black shadow-[0_0_20px_rgba(244,63,94,0.3)]" : 
+                      verdict.includes("POSITIVE") || verdict.includes("BULLISH") ? "bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]" : 
+                      verdict.includes("NEGATIVE") || verdict.includes("BEARISH") ? "bg-rose-500 text-black shadow-[0_0_20px_rgba(244,63,94,0.3)]" : 
                       "bg-white/5 text-white/20"
                     )}>
                       {verdict}
@@ -906,16 +1110,16 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
               <div className="glass-card rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10">
                 <div className="flex flex-col sm:flex-row items-center justify-between mb-10 gap-6">
                   <h3 className="text-[9px] dot-matrix text-white/30 flex items-center gap-2">
-                    Institutional Price Action
+                    Statistical Price Action Model
                   </h3>
                   <div className="flex bg-white/[0.03] rounded-full p-1 border border-white/5 w-full sm:w-auto justify-center">
                     {['1D', '1W', '1M'].map((t) => (
                       <button
                         key={t}
-                        onClick={() => setInterval(t)}
+                        onClick={() => setChartInterval(t)}
                         className={cn(
                           "flex-1 sm:flex-none px-6 py-2 rounded-full text-[9px] dot-matrix transition-all",
-                          interval === t ? "bg-white text-black" : "text-white/20 hover:text-white/40"
+                          chartInterval === t ? "bg-white text-black" : "text-white/20 hover:text-white/40"
                         )}
                       >
                         {t}
@@ -969,12 +1173,12 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                           </ReferenceLine>
                           {analysis.buyZones[0] && (
                             <ReferenceLine y={analysis.buyZones[0].entry} stroke="#10b98140" strokeWidth={1}>
-                              <Label value="BUY ZONE" position="right" fill="#10b98140" fontSize={8} className="dot-matrix" />
+                              <Label value="HISTORICAL SUPPORT" position="right" fill="#10b98140" fontSize={8} className="dot-matrix" />
                             </ReferenceLine>
                           )}
                           {analysis.sellZones[0] && (
                             <ReferenceLine y={analysis.sellZones[0].entry} stroke="#f43f5e40" strokeWidth={1}>
-                              <Label value="SELL ZONE" position="right" fill="#f43f5e40" fontSize={8} className="dot-matrix" />
+                              <Label value="HISTORICAL RESISTANCE" position="right" fill="#f43f5e40" fontSize={8} className="dot-matrix" />
                             </ReferenceLine>
                           )}
                         </>
@@ -1045,10 +1249,10 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                 </div>
               </div>
 
-              {/* Institutional EMA Ribbon */}
+              {/* Statistical EMA Ribbon */}
               <div className="glass-card rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10">
                 <h3 className="text-[9px] dot-matrix text-white/30 mb-10 flex items-center gap-2">
-                  Institutional EMA Ribbon
+                  Quantitative EMA Ribbon
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-4 sm:gap-6">
                   {[
@@ -1132,9 +1336,9 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                     {stockData.longBusinessSummary || "Company profile information is not available at the moment."}
                   </p>
                   
-                  {/* Analyst Forecast (Finology/Tickertape style) */}
+                  {/* Consensus Data Matrix */}
                   <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-                    <h4 className="text-[9px] dot-matrix text-white/40 uppercase mb-4">Analyst Estimates</h4>
+                    <h4 className="text-[9px] dot-matrix text-white/40 uppercase mb-4">Market Consensus Data</h4>
                     <div className="flex items-center gap-6">
                       <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
                         <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
@@ -1152,13 +1356,13 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                           />
                         </svg>
                         <div className="flex flex-col items-center justify-center relative z-10">
-                          <span className="text-xs font-black">{stockData.recommendationKey === 'buy' || stockData.recommendationKey === 'strong_buy' ? 'BUY' : stockData.recommendationKey === 'sell' || stockData.recommendationKey === 'strong_sell' ? 'SELL' : stockData.recommendationKey === 'hold' ? 'HOLD' : 'N/A'}</span>
+                          <span className="text-[8px] font-black">{stockData.recommendationKey === 'buy' || stockData.recommendationKey === 'strong_buy' ? 'BULLISH' : stockData.recommendationKey === 'sell' || stockData.recommendationKey === 'strong_sell' ? 'BEARISH' : stockData.recommendationKey === 'hold' ? 'NEUTRAL' : 'N/A'}</span>
                         </div>
                       </div>
                       <div className="flex-1">
-                        <div className="text-[10px] font-bold text-white/60 uppercase mb-2">Consensus Rating</div>
+                        <div className="text-[10px] font-bold text-white/60 uppercase mb-2">Consensus Bias</div>
                         <div className="flex justify-between items-center bg-black/20 rounded-lg p-2">
-                          <span className="text-[8px] text-white/40 uppercase">Target Price</span>
+                          <span className="text-[8px] text-white/40 uppercase">Projected Resistance</span>
                           <span className="text-[10px] font-mono font-bold text-blue-400">₹{stockData.targetMeanPrice?.toFixed(2) || '---'}</span>
                         </div>
                       </div>
@@ -1166,36 +1370,36 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                   </div>
                 </div>
 
-                {/* Investment Checklist (Trendlyne style) */}
+                {/* Statistical Data Matrix */}
                 <div className="lg:col-span-7 glass-card rounded-[2rem] p-8">
                   <h3 className="text-[9px] dot-matrix text-white/30 mb-6 flex items-center gap-2">
                     <CheckCircle className="w-3 h-3 text-emerald-500" />
-                    Investment Checklist
+                    Statistical Data Matrix
                   </h3>
                   <div className="space-y-3">
                     {[
                       { 
-                        title: 'Intrinsic Value', 
+                        title: 'Intrinsic Value Mapping', 
                         desc: 'Current PE vs Historical Averages', 
                         pass: stockData.peRatio != null ? stockData.peRatio < 25 : null 
                       },
                       { 
-                        title: 'Profitability', 
+                        title: 'Profitability Ratio', 
                         desc: 'Return on Equity (ROE) > 15%', 
                         pass: stockData.roe != null ? stockData.roe > 0.15 : null 
                       },
                       { 
-                        title: 'Financial Trend', 
-                        desc: 'Positive Revenue Growth', 
+                        title: 'Financial Momentum', 
+                        desc: 'Positive Revenue Direction', 
                         pass: stockData.revenueGrowth != null ? stockData.revenueGrowth > 0 : null 
                       },
                       { 
-                        title: 'Dividend Returns', 
+                        title: 'Dividend Statistics', 
                         desc: 'Dividend Yield > 1.0%', 
                         pass: stockData.dividendYield != null ? stockData.dividendYield > 0.01 : false 
                       },
                       { 
-                        title: 'Debt Profile', 
+                        title: 'Debt Assessment', 
                         desc: 'Debt to Equity < 1.0', 
                         pass: stockData.debtToEquity != null ? stockData.debtToEquity < 1 : null 
                       }
@@ -1218,7 +1422,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                           "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
                           idx.pass === null ? "bg-white/10 text-white/40" : idx.pass ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
                         )}>
-                          {idx.pass === null ? 'No Data' : idx.pass ? 'Pass' : 'Fail'}
+                          {idx.pass === null ? 'No Data' : idx.pass ? 'Meets Criteria' : 'Below Criteria'}
                         </div>
                       </div>
                     ))}
@@ -1425,7 +1629,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                     </div>
                     <div>
                       <h3 className="text-sm font-euro uppercase tracking-widest">TIKER 360 PLUS Engine</h3>
-                      <p className="text-[9px] dot-matrix text-white/40">Institutional Swing & Intraday Probability (Groww Data)</p>
+                      <p className="text-[9px] dot-matrix text-white/40">Educational Data Analytics & Probability (Groww Data)</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -1516,7 +1720,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
 
                 {llmPrediction ? (
                   <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/70 prose-headings:text-white prose-strong:text-blue-400 prose-li:text-white/70">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                       {llmPrediction}
                     </ReactMarkdown>
                   </div>
@@ -1660,13 +1864,232 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
               )}
             </div>
           )}
+
+          {/* Learning Module */}
+          {analysisMode === 'learning' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="glass-card rounded-[2rem] p-8 md:p-10 border-2 border-purple-500/30">
+                  {/* Header */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center border-2 border-purple-500/60 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                        <BookOpen className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-euro uppercase tracking-widest">Trading Academy</h3>
+                        <p className="text-[9px] dot-matrix text-white/40 mt-1">Master quantitative concepts and indicators</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                     {/* Card 1: Statistical Pattern Structure */}
+                     <div onClick={() => setSelectedAcademyTopic('structure')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-emerald-400"/> Pricing Structure</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The foundation of technical data. Markets move in trends or ranges. Historical patterns show accumulation at support and distribution at resistance.</p>
+                        <div className="text-[8px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded inline-block">Applies to: {selectedStock?.symbol} ({analysis?.structure})</div>
+                     </div>
+
+                      {/* Card 2: RSI */}
+                      <div onClick={() => setSelectedAcademyTopic('rsi')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><LineChart className="w-4 h-4 text-blue-400"/> RSI</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $100 - [100/(1+RS)]$. Measures speed & change of price movements. 70+ = Exhaustion, 30- = Oversold.</p>
+                         <div className="text-[8px] font-mono text-blue-400 bg-blue-400/10 px-2 py-1 rounded inline-block">Current RSI: {analysis?.indicators.rsi.toFixed(2)}</div>
+                      </div>
+
+                     {/* Card 3: ATR */}
+                     <div onClick={() => setSelectedAcademyTopic('atr')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Maximize className="w-4 h-4 text-amber-400"/> ATR</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Average True Range measures market volatility. Quantitative models use ATR to define risk thresholds (e.g., 1.5x ATR) to account for standard market noise.</p>
+                        <div className="text-[8px] font-mono text-amber-400 bg-amber-400/10 px-2 py-1 rounded inline-block">Current ATR: ₹{analysis?.indicators.atr.toFixed(2)}</div>
+                     </div>
+
+                     {/* Card 4: Max Pain (Options) */}
+                     <div onClick={() => setSelectedAcademyTopic('maxpain')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Target className="w-4 h-4 text-rose-400"/> Max Pain</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The strike price where the highest number of options expire worthless. Option writers often try to pin the price here at expiry.</p>
+                        <div className="text-[8px] font-mono text-rose-400 bg-rose-400/10 px-2 py-1 rounded inline-block">Current Max Pain: {optionsData && optionsData.maxPain ? optionsData.maxPain : 'N/A'}</div>
+                     </div>
+
+                      {/* Card 5: PCR (Put-Call Ratio) */}
+                      <div onClick={() => setSelectedAcademyTopic('pcr')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><PieChart className="w-4 h-4 text-purple-400"/> Put-Call Ratio</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $\sum Put OI / \sum Call OI$. Sentiment gauge: {'>'} 1 = Bearish bias usually, but extremes act as contrarian signals.</p>
+                         <div className="text-[8px] font-mono text-purple-400 bg-purple-400/10 px-2 py-1 rounded inline-block">Current PCR: {optionsData && optionsData.pcr ? optionsData.pcr.toFixed(2) : 'N/A'}</div>
+                      </div>
+
+                     {/* Card 6: VWAP */}
+                     <div onClick={() => setSelectedAcademyTopic('vwap')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-cyan-400"/> VWAP</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Volume Weighted Average Price. Price above VWAP signifies bullish institutional volume. Price below VWAP = Bearish.</p>
+                        <div className="text-[8px] font-mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded inline-block">Institutions use VWAP for entries</div>
+                     </div>
+
+                     {/* Card 7: MACD */}
+                     <div onClick={() => setSelectedAcademyTopic('macd')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><BarChart2 className="w-4 h-4 text-emerald-400"/> MACD</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Moving Average Convergence Divergence. Used to spot changes in strength, direction, momentum, and duration of a trend. Look for crossovers.</p>
+                        <div className="text-[8px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded inline-block">MACD Histogram: {analysis && "macd" in analysis.indicators && analysis.indicators.macd && typeof analysis.indicators.macd === 'object' && "histogram" in analysis.indicators.macd ? Number(analysis.indicators.macd.histogram).toFixed(2) : 'N/A'}</div>
+                     </div>
+
+                     {/* Card 8: Exponential Moving Averages (EMA) */}
+                     <div onClick={() => setSelectedAcademyTopic('ema')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-orange-400"/> EMA 50 & 200</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Dynamic support/resistance. The 50 EMA acts as medium-term trend, and 200 EMA as long-term. "Golden Cross" (50 crosses above 200) indicates major bull trend.</p>
+                        <div className="text-[8px] font-mono text-orange-400 bg-orange-400/10 px-2 py-1 rounded inline-block">50 EMA: ₹{analysis && "ema50" in analysis.indicators ? Number(analysis.indicators.ema50).toFixed(2) : '--'} | 200: ₹{analysis && "ema200" in analysis.indicators ? Number(analysis.indicators.ema200).toFixed(2) : '--'}</div>
+                     </div>
+
+                     {/* Card 9: Delivery Percentage */}
+                     <div onClick={() => setSelectedAcademyTopic('delivery')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Briefcase className="w-4 h-4 text-indigo-400"/> Delivery %</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The percentage of shares actually taken into demat accounts versus intraday speculation. High delivery ({">"} 50%) indicates strong institutional conviction.</p>
+                        <div className="text-[8px] font-mono text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded inline-block">Current Delivery: {stockData && "delivery" in stockData ? Number(stockData.delivery).toFixed(2) + '%' : 'N/A'}</div>
+                     </div>
+
+                     {/* Card 10: OI Analysis */}
+                     <div onClick={() => setSelectedAcademyTopic('oi')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Users className="w-4 h-4 text-pink-400"/> Open Interest Base</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Tracks active option contracts. Huge put OI acts as strong support, while massive call OI acts as a ceiling/resistance placed by big institutional writers.</p>
+                        <div className="text-[8px] font-mono text-pink-400 bg-pink-400/10 px-2 py-1 rounded inline-block">OI Sup: {optionsData?.oiSupport || 'N/A'} | OI Res: {optionsData?.oiResistance || 'N/A'}</div>
+                     </div>
+
+                     {/* Card 11: Pivot Points */}
+                     <div onClick={() => setSelectedAcademyTopic('pivots')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Target className="w-4 h-4 text-yellow-400"/> Pivot Points</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Mathematical levels predicting future support and resistance. Institutions use daily and weekly pivots to place limit orders and take profits automatically.</p>
+                        <div className="text-[8px] font-mono text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded inline-block">Central Pivot: ₹{analysis?.pivots?.pp ? analysis.pivots.pp.toFixed(2) : 'N/A'}</div>
+                     </div>
+
+                     {/* Card 12: SuperTrend / Flow */}
+                     <div onClick={() => setSelectedAcademyTopic('flow')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-300"/> Institutional Flow</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Overall synthesis of moving averages, volatility, and volume. Indicates if smart money is accumulating, distributing, or stepping aside.</p>
+                        <div className="text-[8px] font-mono text-emerald-300 bg-emerald-300/10 px-2 py-1 rounded inline-block">Flow Bias: {analysis && "institutionalFlow" in analysis && analysis.institutionalFlow && typeof analysis.institutionalFlow === 'object' && "institutionalBias" in analysis.institutionalFlow ? String(analysis.institutionalFlow.institutionalBias) : 'Neutral'}</div>
+                     </div>
+                      {/* Card 13: P/E Ratio */}
+                      <div onClick={() => setSelectedAcademyTopic('pe')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><PieChart className="w-4 h-4 text-blue-300"/> P/E Ratio</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $Price / EPS$. Valuation metric. High P/E suggest high growth expectations or overvaluation.</p>
+                         <div className="text-[8px] font-mono text-blue-300 bg-blue-300/10 px-2 py-1 rounded inline-block">Current P/E: {stockData?.peRatio ? stockData.peRatio.toFixed(2) : 'N/A'}</div>
+                      </div>
+
+                      {/* Card 14: ROE */}
+                      <div onClick={() => setSelectedAcademyTopic('roe')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><ArrowUpRight className="w-4 h-4 text-green-300"/> ROE</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $Net Income / Equity$. Efficiency ratio. Measures profit generated per rupee of shareholder capital.</p>
+                         <div className="text-[8px] font-mono text-green-300 bg-green-300/10 px-2 py-1 rounded inline-block">Current ROE: {stockData?.roe ? (stockData.roe * 100).toFixed(2) + '%' : 'N/A'}</div>
+                      </div>
+
+                      {/* Card 15: Dividend Yield */}
+                      <div onClick={() => setSelectedAcademyTopic('dividend')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Briefcase className="w-4 h-4 text-amber-300"/> Dividend Yield</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $DPS / Price$. Represents the return on investment through dividends alone, excluding stock price appreciation.</p>
+                         <div className="text-[8px] font-mono text-amber-300 bg-amber-300/10 px-2 py-1 rounded inline-block">Yield: {stockData?.dividendYield ? (stockData.dividendYield * 100).toFixed(2) + '%' : 'N/A'}</div>
+                      </div>
+
+                      {/* Card 16: Debt to Equity */}
+                      <div onClick={() => setSelectedAcademyTopic('debt')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><TrendingDown className="w-4 h-4 text-rose-300"/> D/E Ratio</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $Liabilities / Equity$. Financial leverage gauge. Higher ratio = higher risk in volatility cycles.</p>
+                         <div className="text-[8px] font-mono text-rose-300 bg-rose-300/10 px-2 py-1 rounded inline-block">D/E Ratio: {stockData?.debtToEquity ? stockData.debtToEquity.toFixed(2) : 'N/A'}</div>
+                      </div>
+
+                      {/* Card 17: Price-to-Book (P/B) Ratio */}
+                      <div onClick={() => setSelectedAcademyTopic('pb')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Briefcase className="w-4 h-4 text-cyan-300"/> P/B Ratio</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $Price / Book Value$. Compares market value to tangible asset value. {">"} 1.0 means paying premium over assets.</p>
+                         <div className="text-[8px] font-mono text-cyan-300 bg-cyan-300/10 px-2 py-1 rounded inline-block">P/B: {stockData?.pbRatio ? stockData.pbRatio.toFixed(2) : 'N/A'}</div>
+                      </div>
+
+                     {/* Card 18: Institutional Holding */}
+                     <div onClick={() => setSelectedAcademyTopic('insthold')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Users className="w-4 h-4 text-purple-300"/> Institutional Play</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The amount of the company owned by large hedge funds and mutual funds. Heavy institutional ownership stabilizes the stock against retail panic.</p>
+                        <div className="text-[8px] font-mono text-purple-300 bg-purple-300/10 px-2 py-1 rounded inline-block">Smart Money Held: {stockData?.institutionsHeld ? (stockData.institutionsHeld * 100).toFixed(1) + '%' : 'N/A'}</div>
+                     </div>
+
+                     {/* Card 19: Profit Margins */}
+                     <div onClick={() => setSelectedAcademyTopic('margins')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><ArrowUpRight className="w-4 h-4 text-emerald-300"/> Profit Margins</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The core indicator of pricing power and operational efficiency. Expanding profit margins naturally force the stock price higher over time.</p>
+                        <div className="text-[8px] font-mono text-emerald-300 bg-emerald-300/10 px-2 py-1 rounded inline-block">Operating: {stockData?.operatingMargins ? (stockData.operatingMargins * 100).toFixed(1) + '%' : 'N/A'}</div>
+                     </div>
+
+                      {/* Card 20: Earnings Per Share (EPS) */}
+                      <div onClick={() => setSelectedAcademyTopic('eps')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                         <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Target className="w-4 h-4 text-amber-300"/> EPS Tracker</h4>
+                         <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: $Net Income / Shares$. Core indicator of profitability allocated to each share of common stock.</p>
+                         <div className="text-[8px] font-mono text-amber-300 bg-amber-300/10 px-2 py-1 rounded inline-block">Trailing EPS: ₹{stockData?.eps ? stockData.eps.toFixed(2) : 'N/A'}</div>
+                      </div>
+
+                     {/* Card 21: Bollinger Bands */}
+                     <div onClick={() => setSelectedAcademyTopic('bbands')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-teal-300"/> Bollinger Bands</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Volatility bands placed above and below a moving average. A 'Bollinger Squeeze' indicates that a massive explosive move is imminent.</p>
+                        <div className="text-[8px] font-mono text-teal-300 bg-teal-300/10 px-2 py-1 rounded inline-block">Algorithmic Volatility Tracker</div>
+                     </div>
+
+                     {/* Card 22: Fibonacci Retracements */}
+                     <div onClick={() => setSelectedAcademyTopic('fibo')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><LineChart className="w-4 h-4 text-blue-400"/> Fibonacci Zones</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The Golden Ratio 0.618 is statistically the most high-probability retracement bounce zone for institutional limit buy orders during a bull market.</p>
+                        <div className="text-[8px] font-mono text-blue-400 bg-blue-400/10 px-2 py-1 rounded inline-block">Precision Reaction Levels</div>
+                     </div>
+
+                     {/* Card 23: ADX */}
+                     <div onClick={() => setSelectedAcademyTopic('adx')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-orange-400"/> ADX Trend Strength</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: {"$100 \\times \\text{EMA}(|DI|)$"}. Measures the strength of the trend regardless of direction. {">"} 25 = Strong trend.</p>
+                        <div className="text-[8px] font-mono text-orange-400 bg-orange-400/10 px-2 py-1 rounded inline-block">Current ADX: {analysis?.indicators.adx ? analysis.indicators.adx.toFixed(1) : 'N/A'}</div>
+                     </div>
+
+                     {/* Card 24: MFI */}
+                     <div onClick={() => setSelectedAcademyTopic('mfi')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-emerald-400"/> Money Flow Index</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">The Volume-Weighted RSI. Identifies institutional accumulation vs retail momentum. Harder to manipulate than standard RSI.</p>
+                        <div className="text-[8px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded inline-block">Current MFI: {analysis?.indicators.mfi ? analysis.indicators.mfi.toFixed(1) : 'N/A'}</div>
+                     </div>
+
+                     {/* Card 25: Institutional Traps */}
+                     <div onClick={() => setSelectedAcademyTopic('traps')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Target className="w-4 h-4 text-rose-400"/> Institutional Traps</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Detection of Bull and Bear Traps (Fake Breakouts). Spotting where retail is 'trapped' by institutional stop-loss hunting.</p>
+                        <div className="text-[8px] font-mono text-rose-400 bg-rose-400/10 px-2 py-1 rounded inline-block">Traps Detected: {analysis?.traps.length || 0}</div>
+                     </div>
+
+                     {/* Card 26: Order Blocks */}
+                     <div onClick={() => setSelectedAcademyTopic('blocks')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Shield className="w-4 h-4 text-indigo-400"/> Order Blocks / FVG</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Smart Money footprints. Price gaps (FVG) and consolidation zones (OB) that acts as high-probability magnets for institutional orders.</p>
+                        <div className="text-[8px] font-mono text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded inline-block">Institutional Price Anchors</div>
+                     </div>
+
+                     {/* Card 27: ROC */}
+                     <div onClick={() => setSelectedAcademyTopic('roc')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400"/> Rate of Change</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Formula: {"$[(Price_{now} - Price_{prev})/Price_{prev}] \\times 100$"}. Pure momentum oscillator. ROC 125 tracks long-term cyclical velocity.</p>
+                        <div className="text-[8px] font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded inline-block">Momentum Velocity Tracker</div>
+                     </div>
+
+                     {/* Card 28: CCI */}
+                     <div onClick={() => setSelectedAcademyTopic('cci')} className="cursor-pointer bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                        <h4 className="text-xs font-black uppercase text-white mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-yellow-400"/> CCI Index</h4>
+                        <p className="text-[10px] text-white/60 leading-relaxed mb-4 min-h-[60px]">Commodity Channel Index. Identifies cyclic trends. Values above +100 indicate strong bullish momentum, below -100 indicate bearish.</p>
+                        <div className="text-[8px] font-mono text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded inline-block">Cyclical Strength Engine</div>
+                     </div>
+
+                  </div>
+               </div>
+            </div>
+          )}
             </div>
           )}
         </div>
       </main>
 
       {/* System Status Bar */}
-      <footer className="border-t border-white/5 bg-black/60 backdrop-blur-3xl h-auto md:h-12 fixed bottom-0 left-0 right-0 z-50 py-3 md:py-0">
+      <footer className="border-t border-white/5 bg-black/80 backdrop-blur-3xl h-auto md:h-12 fixed bottom-0 left-0 right-0 z-50 py-3 md:py-0">
         <div className="max-w-[1600px] mx-auto h-full px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-0">
           <div className="flex items-center gap-6 md:gap-10">
             <div className="flex items-center gap-2.5">
@@ -1675,16 +2098,204 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
             </div>
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-[8px] dot-matrix text-white/20 uppercase tracking-[0.2em]">Golden Rule</span>
-              <span className="text-[8px] font-mono text-white/60 font-bold">Capital protection &gt; Opportunity. When unclear → WAIT is the trade.</span>
+              <span className="text-[8px] font-mono text-white/60 font-bold">Capital protection &gt; Opportunity. Educational analysis only.</span>
             </div>
           </div>
           <div className="flex items-center gap-6 md:gap-10">
+            <div className="hidden lg:flex items-center gap-2 text-[7px] text-rose-500 uppercase font-bold tracking-widest bg-rose-500/10 px-2 py-1 rounded">
+              <Shield className="w-3 h-3" />
+              <span>Not a SEBI registered advisor. No buy/sell calls.</span>
+            </div>
             <span className="text-[8px] dot-matrix text-white/20 uppercase tracking-[0.2em]">© 2026 TIKER 360 PLUS</span>
             <div className="hidden sm:block h-3 w-px bg-white/5" />
-            <span className="hidden sm:block text-[8px] dot-matrix text-white/40 uppercase tracking-[0.2em] font-bold">Institutional Grade Probability Engine</span>
+            <span className="hidden sm:block text-[8px] dot-matrix text-white/40 uppercase tracking-[0.2em] font-bold">Institutional Data Analytics</span>
           </div>
         </div>
       </footer>
+
+      {/* Academy Modal */}
+      <AnimatePresence>
+        {selectedAcademyTopic && ACADEMY_MODULES[selectedAcademyTopic] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedAcademyTopic(null)}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0A0A0A] border border-purple-500/30 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-[0_0_50px_rgba(168,85,247,0.15)] flex flex-col no-scrollbar relative"
+            >
+              {/* Sticky Header */}
+              <div className="sticky top-0 bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/5 p-6 md:p-8 flex items-center justify-between z-10">
+                 <h2 className="text-lg md:text-xl font-bold uppercase tracking-widest text-white flex items-center gap-3">
+                   <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+                     <BookOpen className="w-4 h-4 text-purple-400" />
+                   </div>
+                   {ACADEMY_MODULES[selectedAcademyTopic].title}
+                 </h2>
+                 <button onClick={() => setSelectedAcademyTopic(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white">
+                   <X className="w-5 h-5" />
+                 </button>
+              </div>
+              
+              {/* Content Body */}
+              <div className="p-6 md:p-8 pt-4">
+                 <div className="markdown-body prose-invert text-sm md:text-base leading-relaxed text-white/80">
+                   <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                     {ACADEMY_MODULES[selectedAcademyTopic].content}
+                   </ReactMarkdown>
+                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Chatbot */}
+      <div className="fixed bottom-16 right-6 z-[100] flex flex-col items-end">
+        <AnimatePresence>
+          {isChatOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="mb-4 w-[340px] h-[450px] bg-black/90 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.15)] flex flex-col overflow-hidden"
+            >
+              {/* Chat Header */}
+              <div className="flex bg-blue-600/10 items-center justify-between px-5 py-4 border-b border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Tiker Assistant</h4>
+                    <p className="text-[8px] dot-matrix text-white/50 uppercase">Online</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsChatOpen(false)} className="text-white/40 hover:text-white transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                {chatMessages.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                    <Activity className="w-8 h-8 mb-2" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest">Ask about technical analysis or {selectedStock?.symbol || 'data indicators'}</p>
+                  </div>
+                )}
+                {chatMessages.map((msg, idx) => (
+                  <div key={idx} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                    <div className={cn(
+                      "max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed",
+                      msg.role === 'user' 
+                        ? "bg-blue-600 text-white rounded-tr-sm" 
+                        : "bg-white/5 border border-white/10 text-white/90 rounded-tl-sm"
+                    )}>
+                       <div className="markdown-body text-[11px] prose-invert">
+                         <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown>
+                       </div>
+                    </div>
+                  </div>
+                ))}
+                {isChatLoading && (
+                  <div className="flex w-full justify-start">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2">
+                       <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                       <span className="text-[10px] text-white/60">Computing...</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Chat Input */}
+              <div className="p-3 border-t border-white/5 bg-black/40">
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-2 py-1 focus-within:border-blue-500/50 transition-colors">
+                  <input 
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask standard query..."
+                    className="flex-1 bg-transparent border-none outline-none px-2 py-2 text-[11px] text-white placeholder-white/30 font-mono"
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={!chatInput.trim() || isChatLoading}
+                    className="p-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors shrink-0"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button 
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className={cn(
+            "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.3)] transition-all duration-300 z-50",
+            isChatOpen ? "bg-rose-600 hover:bg-rose-500 rotate-90" : "bg-blue-600 hover:bg-blue-500"
+          )}
+        >
+          {isChatOpen ? <X className="w-5 h-5 text-white" /> : <MessageSquare className="w-5 h-5 text-white" />}
+        </button>
+      </div>
+
+      {/* Mandatory Regulatory Disclaimer Modal */}
+      <AnimatePresence>
+        {!hasAcceptedDisclaimer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="max-w-xl w-full glass-card border-rose-500/30 p-8 md:p-12 text-center"
+            >
+              <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-rose-500/20">
+                <Shield className="w-10 h-10 text-rose-500" />
+              </div>
+              <h1 className="text-2xl font-black uppercase tracking-tighter text-white mb-4">Regulatory Disclaimer</h1>
+              <div className="text-white/60 text-xs leading-relaxed space-y-4 mb-10 text-left max-h-[300px] overflow-y-auto pr-4 no-scrollbar">
+                <p>
+                  <strong>1. Non-Registration with SEBI:</strong> Tiker 360 Plus Analytics is strictly an <strong>EDUCATIONAL AND ANALYTICS PLATFORM</strong>. We are NOT a SEBI-registered Investment Advisor (RIA) or Research Analyst.
+                </p>
+                <p>
+                  <strong>2. No Financial Advice:</strong> All information, data, and analytical models provided on this platform are for educational purposes only. Nothing on this website constitutes an offer to buy/sell, a solicitation, or a recommendation to invest in any securities or financial products.
+                </p>
+                <p>
+                  <strong>3. Risk Disclosure:</strong> Trading and investing in stock markets involves significant risk of loss. Past performance (including historical Support/Resistance levels) is not indicative of future results.
+                </p>
+                <p>
+                  <strong>4. User Responsibility:</strong> You are solely responsible for your own investment decisions. We strongly recommend consulting with a qualified and SEBI-registered financial advisor before making any financial commitments.
+                </p>
+                <p>
+                  <strong>5. Accuracy of Data:</strong> While we strive for accuracy, analytical models and third-party data may contain errors or delays. Use this platform as a learning tool, not a decision-making engine.
+                </p>
+              </div>
+              <button 
+                onClick={acceptDisclaimer}
+                className="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-white/90 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+              >
+                I Understand & Accept
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

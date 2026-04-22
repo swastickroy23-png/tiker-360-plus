@@ -1,6 +1,6 @@
 {
-  "name": "Tiker 360 Plus",
-  "description": "Real-time option chain analysis with data scraped from Groww, featuring technical indicators and AI predictions.",
+  "name": "Tiker 360 Plus Analytics",
+  "description": "Educational platform for technical and fundamental data analytics, designed for studying market structure and statistical patterns.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

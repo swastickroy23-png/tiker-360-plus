@@ -22,8 +22,8 @@ export interface OHLC {
 }
 
 export interface SwingZone {
-  entry: number;
-  stopLoss: number;
+  entry: number; // Retained for drawing the line on the chart, but termed 'level' logically
+  stopLoss: number; // Ignored largely in UI now
   targets: number[];
   rr: string;
   probability: number;
@@ -658,27 +658,27 @@ export class IndicatorEngine {
       accumulationType = "Smart Money Absorption (Bottom)";
       institutionalBias = "Bullish Reversal";
       flowStrength = 9;
-      smartMoneySignal = "Buy the Dip";
+      smartMoneySignal = "Volume Absorption";
     } else if (isPinBarBearish && isVolumeSpike) {
       accumulationType = "Smart Money Distribution (Top)";
       institutionalBias = "Bearish Reversal";
       flowStrength = 9;
-      smartMoneySignal = "Sell the Rip";
+      smartMoneySignal = "Volume Reversal";
     } else if (isVolumeSpike && lastEma20 !== null && lastPrice > lastEma20) {
       accumulationType = "Volume Spike Accumulation";
       institutionalBias = "Bullish";
       flowStrength = 7;
-      smartMoneySignal = "Entry";
+      smartMoneySignal = "Expansion";
     } else if (isVolumeSpike && lastEma20 !== null && lastPrice < lastEma20) {
       accumulationType = "Distribution / Profit Booking";
       institutionalBias = "Bearish";
       flowStrength = 7;
-      smartMoneySignal = "Exit";
+      smartMoneySignal = "Contraction";
     } else if (lastEma50 !== null && lastPrice > lastEma50 && volumeTrend === "Increasing") {
       accumulationType = "Absorption";
       institutionalBias = "Bullish";
       flowStrength = 6;
-      smartMoneySignal = "Hold";
+      smartMoneySignal = "Sustained";
     }
 
     return {
@@ -737,13 +737,13 @@ export class IndicatorEngine {
   }
 
   static determineVerdict(prob: number, structure: string, flowStrength: number, institutionalBias: string) {
-    if (prob >= 85 && structure === "Bullish Swing" && flowStrength >= 7 && institutionalBias.includes("Bullish")) return "STRONG BUY";
-    if (prob >= 85 && structure === "Bearish Swing" && flowStrength >= 7 && institutionalBias.includes("Bearish")) return "STRONG SELL";
+    if (prob >= 85 && structure === "Bullish Swing" && flowStrength >= 7 && institutionalBias.includes("Bullish")) return "HIGH POSITIVE CONFLUENCE";
+    if (prob >= 85 && structure === "Bearish Swing" && flowStrength >= 7 && institutionalBias.includes("Bearish")) return "HIGH NEGATIVE CONFLUENCE";
     
-    if (prob >= 70) return structure === "Bullish Swing" ? "BUY" : structure === "Bearish Swing" ? "SELL" : "WAIT";
-    if (prob >= 60 && institutionalBias.includes("Bullish")) return "ACCUMULATE";
-    if (prob >= 60 && institutionalBias.includes("Bearish")) return "DISTRIBUTE";
+    if (prob >= 70) return structure === "Bullish Swing" ? "POSITIVE CONFLUENCE" : structure === "Bearish Swing" ? "NEGATIVE CONFLUENCE" : "NEUTRAL / WAIT";
+    if (prob >= 60 && institutionalBias.includes("Bullish")) return "MODERATE BULLISH BIAS";
+    if (prob >= 60 && institutionalBias.includes("Bearish")) return "MODERATE BEARISH BIAS";
     
-    return "WAIT";
+    return "NEUTRAL / WAIT";
   }
 }

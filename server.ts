@@ -103,6 +103,24 @@ async function startServer() {
   });
 
   // Auth Endpoints
+  app.get("/api/market-overview", async (req, res) => {
+    try {
+      const symbols = ['^NSEI', '^NSEBANK', '^CNXFIN', '^BSESN'];
+      const quotes = await yahooFinance.quote(symbols);
+      const results = quotes.map((q: any) => ({
+        symbol: q.symbol,
+        name: q.shortName || q.longName || q.symbol,
+        price: q.regularMarketPrice,
+        change: q.regularMarketChange,
+        pChange: q.regularMarketChangePercent
+      }));
+      res.json(results);
+    } catch (err) {
+      console.error("Market Overview Error:", err);
+      res.status(500).json({ error: "Failed to fetch market overview" });
+    }
+  });
+
   app.post("/api/register", async (req, res) => {
     const { email, password } = req.body;
     try {

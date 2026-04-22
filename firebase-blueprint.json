@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "StockAnalytics": {
+      "title": "Stock Analytics",
+      "description": "Cached technical indicators and market data for a stock.",
+      "type": "object",
+      "properties": {
+        "scripCode": { "type": "string" },
+        "symbol": { "type": "string" },
+        "lastPrice": { "type": "number" },
+        "rsi": { "type": "number" },
+        "ema20": { "type": "number" },
+        "trend": { "type": "string", "enum": ["Bullish", "Bearish", "Neutral"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["scripCode", "symbol", "lastPrice"]
+    },
+    "UserWatchlist": {
+      "title": "User Watchlist",
+      "description": "Stocks tracked by a specific user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "stocks": { 
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["userId", "stocks"]
+    }
+  },
+  "firestore": {
+    "/analytics/{scripCode}": {
+      "schema": "StockAnalytics",
+      "description": "Global cache for stock technical indicators."
+    },
+    "/watchlists/{userId}": {
+      "schema": "UserWatchlist",
+      "description": "User-specific stock watchlists."
+    }
+  }
+}

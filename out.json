@@ -1,0 +1,278 @@
+Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+{
+  "incomeStatementHistoryQuarterly": {
+    "incomeStatementHistory": [
+      {
+        "maxAge": 1,
+        "endDate": "2025-12-31T00:00:00.000Z",
+        "totalRevenue": 2649050000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 186450000000,
+        "netIncomeApplicableToCommonShares": null
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2025-09-30T00:00:00.000Z",
+        "totalRevenue": 2546230000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 91290000000,
+        "netIncomeApplicableToCommonShares": null
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2025-06-30T00:00:00.000Z",
+        "totalRevenue": 1163410000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 179040000000,
+        "netIncomeApplicableToCommonShares": null
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2025-03-31T00:00:00.000Z",
+        "totalRevenue": 1329620000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 112170000000,
+        "netIncomeApplicableToCommonShares": null
+      }
+    ],
+    "maxAge": 86400
+  },
+  "cashflowStatementHistory": {
+    "cashflowStatements": [
+      {
+        "maxAge": 1,
+        "endDate": "2025-03-31T00:00:00.000Z",
+        "netIncome": 352620000000
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2024-03-31T00:00:00.000Z",
+        "netIncome": 420420000000
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2023-03-31T00:00:00.000Z",
+        "netIncome": 442050000000
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2022-03-31T00:00:00.000Z",
+        "netIncome": 390840000000
+      }
+    ],
+    "maxAge": 86400
+  },
+  "institutionOwnership": {
+    "maxAge": 1,
+    "ownershipList": []
+  },
+  "majorHoldersBreakdown": {
+    "maxAge": 1,
+    "insidersPercentHeld": 0.51048,
+    "institutionsPercentHeld": 0.27864,
+    "institutionsFloatPercentHeld": 0.56922,
+    "institutionsCount": 386
+  },
+  "balanceSheetHistory": {
+    "balanceSheetStatements": [
+      {
+        "maxAge": 1,
+        "endDate": "2025-03-31T00:00:00.000Z"
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2024-03-31T00:00:00.000Z"
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2023-03-31T00:00:00.000Z"
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2022-03-31T00:00:00.000Z"
+      }
+    ],
+    "maxAge": 86400
+  },
+  "incomeStatementHistory": {
+    "incomeStatementHistory": [
+      {
+        "maxAge": 1,
+        "endDate": "2025-03-31T00:00:00.000Z",
+        "totalRevenue": 9646930000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 352620000000,
+        "netIncomeApplicableToCommonShares": null
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2024-03-31T00:00:00.000Z",
+        "totalRevenue": 5345340000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 420420000000,
+        "netIncomeApplicableToCommonShares": null
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2023-03-31T00:00:00.000Z",
+        "totalRevenue": 5297730000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 442050000000,
+        "netIncomeApplicableToCommonShares": null
+      },
+      {
+        "maxAge": 1,
+        "endDate": "2022-03-31T00:00:00.000Z",
+        "totalRevenue": 4237030000000,
+        "costOfRevenue": 0,
+        "grossProfit": 0,
+        "researchDevelopment": null,
+        "sellingGeneralAdministrative": null,
+        "nonRecurring": null,
+        "otherOperatingExpenses": null,
+        "totalOperatingExpenses": 0,
+        "operatingIncome": null,
+        "totalOtherIncomeExpenseNet": null,
+        "ebit": 0,
+        "interestExpense": null,
+        "incomeBeforeTax": null,
+        "incomeTaxExpense": 0,
+        "minorityInterest": null,
+        "netIncomeFromContinuingOps": null,
+        "discontinuedOperations": null,
+        "extraordinaryItems": null,
+        "effectOfAccountingCharges": null,
+        "otherItems": null,
+        "netIncome": 390840000000,
+        "netIncomeApplicableToCommonShares": null
+      }
+    ],
+    "maxAge": 86400
+  }
+}

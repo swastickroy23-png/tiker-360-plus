@@ -1,4 +1,4 @@
-export const SWING_ARM_SYSTEM_PROMPT = `SWING 360 PLUS 
+export const SWING_ARM_SYSTEM_PROMPT = `TIKER 360 PLUS 
 
 Institutional Technical Swing & Intraday Probability Engine
 

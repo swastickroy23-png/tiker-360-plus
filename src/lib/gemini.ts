@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function analyzeSymbol(symbol: string, context: string = ""): Promise<string> {
   try {
-    const prompt = `Analyze the following symbol/asset: ${symbol}\n\nAdditional Context/Data:\n${context}\n\nPlease provide the analysis following the SWING 360 PLUS format.`;
+    const prompt = `Analyze the following symbol/asset: ${symbol}\n\nAdditional Context/Data:\n${context}\n\nPlease provide the analysis following the TIKER 360 PLUS format.`;
     
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",

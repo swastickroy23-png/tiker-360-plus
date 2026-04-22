@@ -594,7 +594,7 @@ async function startServer() {
   }
 
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(`MunafaStock Server running on http://localhost:${PORT}`);
+    console.log(`Tiker 360 Plus Server running on http://localhost:${PORT}`);
   });
 }
 

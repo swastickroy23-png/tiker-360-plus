@@ -657,7 +657,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-euro text-lg md:text-2xl leading-none tracking-tighter uppercase">SWING 360 PLUS<span className="text-primary">.</span></span>
+                <span className="font-euro text-lg md:text-2xl leading-none tracking-tighter uppercase">TIKER 360 PLUS<span className="text-primary">.</span></span>
                 <div className={cn(
                   "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
                   marketStatus.isOpen ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-rose-500/10 border-rose-500/20 text-rose-500"
@@ -768,7 +768,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
               >
                 <Zap className="w-10 h-10 md:w-14 md:h-14" />
               </motion.div>
-              <h1 className="text-4xl md:text-6xl font-euro tracking-tighter mb-6 md:mb-8 relative z-10 leading-none uppercase">SWING 360 PLUS<span className="text-white/20">.</span></h1>
+              <h1 className="text-4xl md:text-6xl font-euro tracking-tighter mb-6 md:mb-8 relative z-10 leading-none uppercase">TIKER 360 PLUS<span className="text-white/20">.</span></h1>
               <p className="text-white/20 text-xs md:text-sm max-w-md mx-auto font-bold leading-relaxed relative z-10 uppercase tracking-widest dot-matrix">
                 Institutional Technical Swing & Intraday Probability Engine
               </p>
@@ -1424,7 +1424,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                       <Bot className="w-6 h-6 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-euro uppercase tracking-widest">SWING 360 PLUS Engine</h3>
+                      <h3 className="text-sm font-euro uppercase tracking-widest">TIKER 360 PLUS Engine</h3>
                       <p className="text-[9px] dot-matrix text-white/40">Institutional Swing & Intraday Probability (Groww Data)</p>
                     </div>
                   </div>
@@ -1490,7 +1490,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
                           value={customPrompt}
                           onChange={(e) => setCustomPrompt(e.target.value)}
                           className="w-full h-64 bg-white/5 border border-white/10 rounded-xl p-4 text-[10px] font-mono text-white/80 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y mb-4"
-                          placeholder="Enter custom instructions for the SWING 360 PLUS Engine..."
+                          placeholder="Enter custom instructions for the TIKER 360 PLUS Engine..."
                         />
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
                           <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -1679,7 +1679,7 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
             </div>
           </div>
           <div className="flex items-center gap-6 md:gap-10">
-            <span className="text-[8px] dot-matrix text-white/20 uppercase tracking-[0.2em]">© 2026 SWING 360 PLUS</span>
+            <span className="text-[8px] dot-matrix text-white/20 uppercase tracking-[0.2em]">© 2026 TIKER 360 PLUS</span>
             <div className="hidden sm:block h-3 w-px bg-white/5" />
             <span className="hidden sm:block text-[8px] dot-matrix text-white/40 uppercase tracking-[0.2em] font-bold">Institutional Grade Probability Engine</span>
           </div>

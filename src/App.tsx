@@ -2013,11 +2013,10 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
           contents: prompt,
           config: {
             temperature: llmTemperature,
-            tools: [{ googleSearch: {} }]
           }
         });
 
-        setLlmPrediction(response.text);
+        setLlmPrediction(response.text || "No response generated.");
       }
     } catch (err) {
       console.error("LLM Prediction Error:", err);
@@ -2078,11 +2077,11 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         geminiContents.push({ role: 'user', parts: [{ text: userMessage }] });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.1-pro-preview',
+          model: llmModel,
           contents: geminiContents,
           config: {
             systemInstruction: contextStr,
-            tools: [{ googleSearch: {} }]
+            temperature: llmTemperature,
           }
         });
 

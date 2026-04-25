@@ -2008,18 +2008,36 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         const json = await ollamaResponse.json();
         setLlmPrediction(json.response);
       } else {
-        const response = await ai.models.generateContent({
-          model: llmModel,
-          contents: prompt,
-          config: {
-            temperature: llmTemperature,
-          }
-        });
+        console.log("[v0] Calling Gemini with model:", llmModel);
+        console.log("[v0] API key present:", !!apiKey);
+        console.log("[v0] Prompt length:", prompt.length);
+        
+        try {
+          const response = await ai.models.generateContent({
+            model: llmModel,
+            contents: prompt,
+            config: {
+              temperature: llmTemperature,
+            }
+          });
 
-        setLlmPrediction(response.text || "No response generated.");
+          console.log("[v0] Gemini response object:", response);
+          console.log("[v0] Response text property:", response?.text);
+          
+          if (response?.text) {
+            setLlmPrediction(response.text);
+          } else {
+            console.error("[v0] No text in response:", response);
+            setLlmPrediction("No response generated.");
+          }
+        } catch (geminiError) {
+          console.error("[v0] Gemini API error:", geminiError);
+          throw geminiError;
+        }
       }
     } catch (err) {
-      console.error("LLM Prediction Error:", err);
+      console.error("[v0] LLM Prediction Error:", err);
+      console.error("[v0] Error details:", (err as any)?.message || err);
       setLlmPrediction(aiProvider === 'ollama' ? "Error connecting to local Ollama. Ensure it's running and CORS is enabled." : "Error generating prediction. Please check your API key and try again.");
     } finally {
       setIsGeneratingLlm(false);

@@ -21,6 +21,8 @@ interface SettingsModalProps {
   setLlmModel: (model: string) => void;
   llmTemperature: number;
   setLlmTemperature: (temp: number) => void;
+  orbitApiKey: string;
+  setOrbitApiKey: (key: string) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -35,7 +37,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   llmModel,
   setLlmModel,
   llmTemperature,
-  setLlmTemperature
+  setLlmTemperature,
+  orbitApiKey,
+  setOrbitApiKey
 }) => {
   return (
     <AnimatePresence>
@@ -153,6 +157,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onChange={(e) => setLlmModel(e.target.value)}
                       className="w-full bg-black border border-white/10 rounded-lg p-3 text-sm text-white font-mono focus:border-blue-500 focus:outline-none"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">ORBIT Engine API Key</label>
+                    <input 
+                      type="password" 
+                      value={orbitApiKey}
+                      onChange={(e) => setOrbitApiKey(e.target.value)}
+                      className="w-full bg-black border border-white/10 rounded-lg p-3 text-sm text-white font-mono focus:border-blue-500 focus:outline-none"
+                      placeholder="Enter your Google Gemini API key"
+                    />
+                    <p className="text-[10px] text-white/40 mt-2">Get your API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Google AI Studio</a></p>
                   </div>
                 </motion.div>
               )}

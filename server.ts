@@ -267,26 +267,61 @@ async function startServer() {
              const rawQuery = title.replace('Custom Scan: ', '').toLowerCase().trim();
              if (rawQuery) {
                 results = results.filter(r => {
-                   let rawInput = rawQuery;
-                   // Example safe substitutions for evaluate
-                   rawInput = rawInput.replace(/price to earning/g, r.pe.toString());
-                   rawInput = rawInput.replace(/pe ratio/g, r.pe.toString());
-                   rawInput = rawInput.replace(/pe/g, r.pe.toString());
-                   rawInput = rawInput.replace(/pb ratio/g, r.pb.toString());
-                   rawInput = rawInput.replace(/pb/g, r.pb.toString());
-                   rawInput = rawInput.replace(/return on capital employed/g, Math.random() * 30 + ''); // mock ROCE
-                   rawInput = rawInput.replace(/price/g, r.price.toString());
-                   rawInput = rawInput.replace(/volume/g, r.volume.toString());
-                   
-                   // Replace AND / OR
-                   rawInput = rawInput.replace(/and/g, "&&");
-                   rawInput = rawInput.replace(/or/g, "||");
-                   
-                   // Strip % signs for mathematical logic
-                   rawInput = rawInput.replace(/%/g, "");
-
+                   // Safe evaluation using a whitelist approach
                    try {
-                     return new Function('return ' + rawInput)();
+                     let expr = rawQuery;
+                     // Example safe substitutions for evaluate
+                     expr = expr.replace(/price to earning/g, r.pe.toString());
+                     expr = expr.replace(/pe ratio/g, r.pe.toString());
+                     expr = expr.replace(/pe/g, r.pe.toString());
+                     expr = expr.replace(/pb ratio/g, r.pb.toString());
+                     expr = expr.replace(/pb/g, r.pb.toString());
+                     expr = expr.replace(/return on capital employed/g, (Math.random() * 30).toString());
+                     expr = expr.replace(/price/g, r.price.toString());
+                     expr = expr.replace(/volume/g, r.volume.toString());
+                     
+                     // Replace AND / OR
+                     expr = expr.replace(/and/g, "&&");
+                     expr = expr.replace(/or/g, "||");
+                     
+                     // Strip % signs for mathematical logic
+                     expr = expr.replace(/%/g, "");
+                     
+                     // Only allow safe comparison operators and numbers
+                     if (!/^[\d\s<>=&|.]+$/.test(expr)) {
+                       return true;
+                     }
+                     
+                     // Safe evaluation without Function constructor
+                     // This is still evaluated as a simple expression
+                     const safeEval = (expression: string) => {
+                       try {
+                         // Only allow basic comparison operations
+                         const tokens = expression.match(/[\d.]+|[<>=&|]+/g) || [];
+                         if (tokens.length === 0) return true;
+                         
+                         // Simple tokenizer for basic math
+                         let left = parseFloat(tokens[0]) || 0;
+                         for (let i = 1; i < tokens.length; i += 2) {
+                           const op = tokens[i];
+                           const right = parseFloat(tokens[i + 1]) || 0;
+                           
+                           if (op === '<') left = left < right ? 1 : 0;
+                           else if (op === '>') left = left > right ? 1 : 0;
+                           else if (op === '<=') left = left <= right ? 1 : 0;
+                           else if (op === '>=') left = left >= right ? 1 : 0;
+                           else if (op === '==') left = left === right ? 1 : 0;
+                           else if (op === '&&') left = left && right ? 1 : 0;
+                           else if (op === '||') left = left || right ? 1 : 0;
+                           else left = right;
+                         }
+                         return Boolean(left);
+                       } catch {
+                         return true;
+                       }
+                     };
+                     
+                     return safeEval(expr);
                    } catch {
                      // If syntax is invalid after replacement, just return true
                      return true;

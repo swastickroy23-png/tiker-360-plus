@@ -1519,7 +1519,20 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState<'gemini' | 'ollama'>('gemini');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3');
+  const [orbitApiKey, setOrbitApiKey] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('orbit_api_key') || '';
+    }
+    return '';
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Save API key to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && orbitApiKey) {
+      localStorage.setItem('orbit_api_key', orbitApiKey);
+    }
+  }, [orbitApiKey]);
   
   // Mandatory Disclaimer State
   const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(() => {
@@ -1912,7 +1925,13 @@ export default function App() {
     setLlmPrediction(null);
     
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY });
+      const apiKey = orbitApiKey || import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        setLlmPrediction("Please provide a Gemini API key in the ORBIT Engine settings.");
+        setIsGeneratingLlm(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       
       let dataContext = '';
       if (selectedStock && stockData && historicalData && analysis) {
@@ -1989,19 +2008,36 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         const json = await ollamaResponse.json();
         setLlmPrediction(json.response);
       } else {
-        const response = await ai.models.generateContent({
-          model: llmModel,
-          contents: prompt,
-          config: {
-            temperature: llmTemperature,
-            tools: [{ googleSearch: {} }]
-          }
-        });
+        console.log("[v0] Calling Gemini with model:", llmModel);
+        console.log("[v0] API key present:", !!apiKey);
+        console.log("[v0] Prompt length:", prompt.length);
+        
+        try {
+          const response = await ai.models.generateContent({
+            model: llmModel,
+            contents: prompt,
+            config: {
+              temperature: llmTemperature,
+            }
+          });
 
-        setLlmPrediction(response.text);
+          console.log("[v0] Gemini response object:", response);
+          console.log("[v0] Response text property:", response?.text);
+          
+          if (response?.text) {
+            setLlmPrediction(response.text);
+          } else {
+            console.error("[v0] No text in response:", response);
+            setLlmPrediction("No response generated.");
+          }
+        } catch (geminiError) {
+          console.error("[v0] Gemini API error:", geminiError);
+          throw geminiError;
+        }
       }
     } catch (err) {
-      console.error("LLM Prediction Error:", err);
+      console.error("[v0] LLM Prediction Error:", err);
+      console.error("[v0] Error details:", (err as any)?.message || err);
       setLlmPrediction(aiProvider === 'ollama' ? "Error connecting to local Ollama. Ensure it's running and CORS is enabled." : "Error generating prediction. Please check your API key and try again.");
     } finally {
       setIsGeneratingLlm(false);
@@ -2043,18 +2079,14 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         const json = await response.json();
         setChatMessages(prev => [...prev, { role: 'model', content: json.message?.content || '' }]);
       } else {
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = orbitApiKey || process.env.GEMINI_API_KEY;
         if (!apiKey) {
-          if (window.aistudio) {
-            await window.aistudio.openSelectKey();
-          } else {
-            setChatMessages(prev => [...prev, { role: 'model', content: "Please provide a valid Gemini API key to use the Tiker 360 Plus Assistant." }]);
-            setIsChatLoading(false);
-            return;
-          }
+          setChatMessages(prev => [...prev, { role: 'model', content: "Please provide a Gemini API key in the ORBIT Engine settings to use the Tiker 360 Plus Assistant." }]);
+          setIsChatLoading(false);
+          return;
         }
 
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         
         const geminiContents = chatMessages.map(msg => ({
           role: msg.role === 'model' ? 'model' : 'user',
@@ -2063,11 +2095,11 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         geminiContents.push({ role: 'user', parts: [{ text: userMessage }] });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.1-pro-preview',
+          model: llmModel,
           contents: geminiContents,
           config: {
             systemInstruction: contextStr,
-            tools: [{ googleSearch: {} }]
+            temperature: llmTemperature,
           }
         });
 
@@ -3674,6 +3706,8 @@ Max Pain: ${optionsData?.maxPain || 'N/A'}
         setLlmModel={setLlmModel}
         llmTemperature={llmTemperature}
         setLlmTemperature={setLlmTemperature}
+        orbitApiKey={orbitApiKey}
+        setOrbitApiKey={setOrbitApiKey}
       />
     </div>
   );

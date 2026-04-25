@@ -67,19 +67,25 @@ export const TechnicalChart = ({ data, symbol, analysis }: TechnicalChartProps) 
 
   // Load drawings from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(`drawings_${symbol}`);
-    if (saved) {
-      try {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(`drawings_${symbol}`);
+      if (saved) {
         setDrawings(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load drawings", e);
       }
+    } catch (e) {
+      console.error("Failed to load drawings", e);
     }
   }, [symbol]);
 
   // Save drawings to localStorage
   useEffect(() => {
-    localStorage.setItem(`drawings_${symbol}`, JSON.stringify(drawings));
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(`drawings_${symbol}`, JSON.stringify(drawings));
+    } catch (e) {
+      console.error("Failed to save drawings", e);
+    }
   }, [drawings, symbol]);
 
   // Indicator Calculations

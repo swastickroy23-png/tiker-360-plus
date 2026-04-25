@@ -823,6 +823,17 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
+    
+    // Fallback to index.html for SPA routing
+    app.get("*", async (req, res) => {
+      try {
+        const html = await vite.transformIndexHtml(req.url, await fs.readFile(path.join(process.cwd(), 'index.html'), 'utf-8'));
+        res.set('Content-Type', 'text/html').end(html);
+      } catch (err) {
+        console.error("Error transforming index.html:", err);
+        res.status(500).end("Error loading page");
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));

@@ -40,7 +40,7 @@ async function writeDB(data: Database) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const server = http.createServer(app);
 
   app.use(cors());
@@ -51,6 +51,9 @@ async function startServer() {
 
   // WebSocket Server for Live MarketFeed
   const wss = new WebSocketServer({ server, path: '/ws' });
+  wss.on('error', (err) => {
+    console.error('WebSocket server error:', err.message);
+  });
   const activeSubscriptions = new Map<WebSocket, string>();
 
   wss.on("connection", (ws) => {
@@ -818,20 +821,28 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (error: any) {
+      console.error("Vite server creation error:", error.message);
+    }
     
-    // Fallback to index.html for SPA routing
+    // Serve static assets
+    app.use(express.static(path.join(process.cwd(), 'public')));
+    
+    // Fallback to index.html for SPA routing (only for non-API requests)
     app.get("*", async (req, res) => {
       try {
-        const html = await vite.transformIndexHtml(req.url, await fs.readFile(path.join(process.cwd(), 'index.html'), 'utf-8'));
+        const indexPath = path.join(process.cwd(), 'index.html');
+        const html = await fs.readFile(indexPath, 'utf-8');
         res.set('Content-Type', 'text/html').end(html);
-      } catch (err) {
-        console.error("Error transforming index.html:", err);
-        res.status(500).end("Error loading page");
+      } catch (err: any) {
+        console.error("Error serving index.html:", err.message);
+        res.status(404).end("Page not found");
       }
     });
   } else {
